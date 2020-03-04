@@ -8,55 +8,50 @@
 
 import UIKit
 
+//structures for json parsing
 struct  SongListResponse: Decodable {
-    enum CodingKeys: String, CodingKey {
-        case results
-    }
     let results: [Song]
 }
 
 struct Song: Decodable {
-    var trackName: String?
-    var collectionName: String?
-    var trackPrice: Double?
- 
-    enum CodingKeys: String, CodingKey {
-        case trackName
-        case collectionName
-        case trackPrice
-    }
-
-
-     init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-
-         self.trackName = try? container.decode(String.self, forKey: .trackName)
-         self.collectionName = try? container.decode(String.self, forKey: .collectionName)
-         self.trackPrice = try? container.decode(Double.self, forKey: .trackPrice)
-
-
-    }
+    var trackName: String
+    var collectionName: String
+    var trackPrice: Double
+    
 }
 
-
 class ViewController: UIViewController {
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
-        // Do any additional setup after loading the view.
-    }
-
     
+    @IBOutlet weak var songTableView: UITableView!
     @IBOutlet weak var songerName: UITextField!
     
-    @IBOutlet weak var songInfo: UILabel!
+    var songs:SongListResponse?
     
-    @IBAction func getButton(_ sender: UIButton) {
+    override func viewDidLoad() {
+        super.viewDidLoad()
         
-        let urlBefore = "https://itunes.apple.com/search?term=" + (String(songerName.text!))
-        print (urlBefore)
-        guard let url = URL(string: urlBefore) else { return }
-
+        songTableView.dataSource = self
+        songTableView.delegate = self
+        songTableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
+        
+    }
+    
+    @IBAction func searchButton(_ sender: UIButton) {
+        
+        getResults { (parsedResults) in
+            self.songs = parsedResults
+            DispatchQueue.main.async {
+                self.songTableView.reloadData()
+            }
+        }
+        
+    }
+    
+//    work with iTunes API, getting and parsing JSON
+    func getResults(completion: @escaping (SongListResponse?) -> Void ) {
+        
+        guard let enterSinger = (songerName.text) else { return }
+        guard let url = URL(string: "https://itunes.apple.com/search?term=" + (enterSinger) + "&limit=50") else { return }
         
         URLSession.shared.dataTask(with: url) { (data, response, error) in
             
@@ -64,30 +59,26 @@ class ViewController: UIViewController {
             guard error == nil else { return }
             
             do {
-                //let json = try JSONSerialization.jsonObject(with: data, options: [])
                 let parsedResult: SongListResponse = try! JSONDecoder().decode(SongListResponse.self, from: data)
-
-                //print (parsedResult)
-                print("------------------------------")
-                print (parsedResult.results[0])
-                
-                
-                
-                DispatchQueue.main.async {
-                    self.songInfo.isHidden = false
-                    self.songInfo.text = "\(parsedResult)"
-                    
-                    
-                }
+                completion(parsedResult)
             }
-            catch {
-                print (error)
-                }
-
-            
         }.resume()
-        }
         
-    
+    }
 }
 
+extension ViewController: UITableViewDelegate, UITableViewDataSource {
+    
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return songs?.results.count ?? 0
+    }
+    
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
+        let song = songs?.results[indexPath.row]
+        cell.textLabel?.text = song?.trackName
+        return cell
+    }
+    
+    
+}
