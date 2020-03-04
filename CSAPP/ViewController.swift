@@ -14,10 +14,9 @@ struct  SongListResponse: Decodable {
 }
 
 struct Song: Decodable {
-    var trackName: String
-    var collectionName: String
-    var trackPrice: Double
-    
+    var trackName: String?
+    var collectionName: String?
+    var artistName: String?
 }
 
 class ViewController: UIViewController {
@@ -32,12 +31,12 @@ class ViewController: UIViewController {
         
         songTableView.dataSource = self
         songTableView.delegate = self
-        songTableView.register(UITableViewCell.self, forCellReuseIdentifier: "cell")
         
     }
     
     @IBAction func searchButton(_ sender: UIButton) {
         
+        songerName.resignFirstResponder()
         getResults { (parsedResults) in
             self.songs = parsedResults
             DispatchQueue.main.async {
@@ -47,11 +46,12 @@ class ViewController: UIViewController {
         
     }
     
-//    work with iTunes API, getting and parsing JSON
+    //    work with iTunes API, getting and parsing JSON
     func getResults(completion: @escaping (SongListResponse?) -> Void ) {
         
         guard let enterSinger = (songerName.text) else { return }
-        guard let url = URL(string: "https://itunes.apple.com/search?term=" + (enterSinger) + "&limit=50") else { return }
+        let newEnterSinger = enterSinger.replacingOccurrences(of: " ", with: "+")
+        guard let url = URL(string: "https://itunes.apple.com/search?term=" + (newEnterSinger) + "&limit=200") else { return }
         
         URLSession.shared.dataTask(with: url) { (data, response, error) in
             
@@ -65,6 +65,7 @@ class ViewController: UIViewController {
         }.resume()
         
     }
+    
 }
 
 extension ViewController: UITableViewDelegate, UITableViewDataSource {
@@ -76,7 +77,8 @@ extension ViewController: UITableViewDelegate, UITableViewDataSource {
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
         let song = songs?.results[indexPath.row]
-        cell.textLabel?.text = song?.trackName
+        cell.textLabel?.text = (song?.artistName ?? "") + " - " + (song?.trackName ?? "")
+        cell.detailTextLabel?.text = song?.collectionName
         return cell
     }
     
